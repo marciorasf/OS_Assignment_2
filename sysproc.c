@@ -95,3 +95,19 @@ int sys_set_prio(void){
   argint(0, &priority);
   return set_prio(priority);
 }
+
+int sys_wait2(void){
+  int* retime;
+  int* rutime;
+  int* stime;
+  argint(0,(int*)&retime);
+  argint(1,(int*)&rutime);
+  argint(2,(int*)&stime);
+
+  return wait2(retime, rutime, stime);
+}
+
+int sys_yield(void){
+  yield();
+  return 0;
+}
