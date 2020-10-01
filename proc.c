@@ -7,11 +7,6 @@
 #include "proc.h"
 #include "spinlock.h"
 
-struct {
-  struct spinlock lock;
-  struct proc proc[NPROC];
-} ptable;
-
 #define NPROC_Q NPROC/3
 
 struct {
@@ -19,7 +14,7 @@ struct {
   struct proc * head;
   struct proc * tail;
   struct proc queue [3][NPROC_Q];      // There can't be more than NPROC on a system
-} pqueues;
+} ptable;
 
 static struct proc *initproc;
 
@@ -32,7 +27,7 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
-  initlock(&pqueues.lock, "pqueues");
+  initlock(&ptable.lock, "ptable");
 }
 
 // Must be called with interrupts disabled
@@ -86,24 +81,24 @@ allocproc(void)
   char *sp;
   int prio;
 
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
 
   // This implies new procs will be created on HIGH, but if HIGH is full
   // new procs will be put on lower priority queues
   for(prio = HIGH; prio > LOW; --prio){
-    for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++)
+    for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++)
       if(p->state == UNUSED)
         goto found;
   }
 
-  release(&pqueues.lock);
+  release(&ptable.lock);
   return 0;
 
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
-  release(&pqueues.lock);
+  release(&ptable.lock);
 
   // Allocate kernel stack.
   if((p->kstack = kalloc()) == 0){
@@ -160,11 +155,11 @@ userinit(void)
   // run this process. the acquire forces the above
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
 
   p->state = RUNNABLE;
 
-  release(&pqueues.lock);
+  release(&ptable.lock);
 }
 
 // Grow current process's memory by n bytes.
@@ -227,11 +222,11 @@ fork(void)
   pid = np->pid;
   np->priority = HIGH;
 
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
 
   np->state = RUNNABLE;
 
-  release(&pqueues.lock);
+  release(&ptable.lock);
 
   return pid;
 }
@@ -263,14 +258,14 @@ exit(void)
   end_op();
   curproc->cwd = 0;
 
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
   wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
   for(prio = HIGH; prio > LOW; --prio){
-    for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++){
+    for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++){
       if(p->parent == curproc){
         p->parent = initproc;
         if(p->state == ZOMBIE)
@@ -295,12 +290,12 @@ wait(void)
   struct proc *curproc = myproc();
   int prio;
   
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
     for(prio = HIGH; prio > LOW; --prio){
-      for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++){
+      for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++){
         if(p->parent != curproc)
           continue;
         havekids = 1;
@@ -315,7 +310,7 @@ wait(void)
           p->name[0] = 0;
           p->killed = 0;
           p->state = UNUSED;
-          release(&pqueues.lock);
+          release(&ptable.lock);
           return pid;
         }
       }
@@ -323,12 +318,12 @@ wait(void)
 
     // No point waiting if we don't have any children.
     if(!havekids || curproc->killed){
-      release(&pqueues.lock);
+      release(&ptable.lock);
       return -1;
     }
 
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-    sleep(curproc, &pqueues.lock);  //DOC: wait-sleep
+    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
   }
 }
 
@@ -353,15 +348,15 @@ scheduler(void)
     sti();
 
     // Loop over process table looking for process to run.
-    acquire(&pqueues.lock);
+    acquire(&ptable.lock);
 
     for(prio = HIGH; prio > LOW; --prio){
-      for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++){
+      for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++){
         if(p->state != RUNNABLE)
           continue;
 
         // Switch to chosen process.  It is the process's job
-        // to release pqueues.lock and then reacquire it
+        // to release ptable.lock and then reacquire it
         // before jumping back to us.
         c->proc = p;
         switchuvm(p);
@@ -375,12 +370,12 @@ scheduler(void)
         c->proc = 0;
       }
     }
-    release(&pqueues.lock);
+    release(&ptable.lock);
 
   }
 }
 
-// Enter scheduler.  Must hold only pqueues.lock
+// Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
 // kernel thread, not this CPU. It should
@@ -393,8 +388,8 @@ sched(void)
   int intena;
   struct proc *p = myproc();
 
-  if(!holding(&pqueues.lock))
-    panic("sched pqueues.lock");
+  if(!holding(&ptable.lock))
+    panic("sched ptable.lock");
   if(mycpu()->ncli != 1)
     panic("sched locks");
   if(p->state == RUNNING)
@@ -410,10 +405,10 @@ sched(void)
 void
 yield(void)
 {
-  acquire(&pqueues.lock);  //DOC: yieldlock
+  acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
   sched();
-  release(&pqueues.lock);
+  release(&ptable.lock);
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -422,8 +417,8 @@ void
 forkret(void)
 {
   static int first = 1;
-  // Still holding pqueues.lock from scheduler.
-  release(&pqueues.lock);
+  // Still holding ptable.lock from scheduler.
+  release(&ptable.lock);
 
   if (first) {
     // Some initialization functions must be run in the context
@@ -450,14 +445,14 @@ sleep(void *chan, struct spinlock *lk)
   if(lk == 0)
     panic("sleep without lk");
 
-  // Must acquire pqueues.lock in order to
+  // Must acquire ptable.lock in order to
   // change p->state and then call sched.
-  // Once we hold pqueues.lock, we can be
+  // Once we hold ptable.lock, we can be
   // guaranteed that we won't miss any wakeup
-  // (wakeup runs with pqueues.lock locked),
+  // (wakeup runs with ptable.lock locked),
   // so it's okay to release lk.
-  if(lk != &pqueues.lock){  //DOC: sleeplock0
-    acquire(&pqueues.lock);  //DOC: sleeplock1
+  if(lk != &ptable.lock){  //DOC: sleeplock0
+    acquire(&ptable.lock);  //DOC: sleeplock1
     release(lk);
   }
   // Go to sleep.
@@ -470,15 +465,15 @@ sleep(void *chan, struct spinlock *lk)
   p->chan = 0;
 
   // Reacquire original lock.
-  if(lk != &pqueues.lock){  //DOC: sleeplock2
-    release(&pqueues.lock);
+  if(lk != &ptable.lock){  //DOC: sleeplock2
+    release(&ptable.lock);
     acquire(lk);
   }
 }
 
 //PAGEBREAK!
 // Wake up all processes sleeping on chan.
-// The pqueues lock must be held.
+// The ptable lock must be held.
 static void
 wakeup1(void *chan)
 {
@@ -486,7 +481,7 @@ wakeup1(void *chan)
   int prio;
 
   for(prio = HIGH; prio > LOW; --prio){
-    for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++)
+    for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++)
       if(p->state == SLEEPING && p->chan == chan)
         p->state = RUNNABLE;
   }
@@ -496,9 +491,9 @@ wakeup1(void *chan)
 void
 wakeup(void *chan)
 {
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
   wakeup1(chan);
-  release(&pqueues.lock);
+  release(&ptable.lock);
 }
 
 int
@@ -519,20 +514,20 @@ kill(int pid)
   struct proc *p;
   int prio;
 
-  acquire(&pqueues.lock);
+  acquire(&ptable.lock);
   for(prio = HIGH; prio > LOW; --prio){
-    for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++){
+    for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++){
       if(p->pid == pid){
         p->killed = 1;
         // Wake process from sleep if necessary.
         if(p->state == SLEEPING)
           p->state = RUNNABLE;
-        release(&pqueues.lock);
+        release(&ptable.lock);
         return 0;
       }
     }
   }
-  release(&pqueues.lock);
+  release(&ptable.lock);
   return -1;
 }
 
@@ -558,7 +553,7 @@ procdump(void)
   int prio;
 
   for(prio = HIGH; prio > LOW; --prio){
-    for(p = pqueues.queue[prio]; p < &pqueues.queue[prio][NPROC_Q]; p++){
+    for(p = ptable.queue[prio]; p < &ptable.queue[prio][NPROC_Q]; p++){
       if(p->state == UNUSED)
         continue;
       if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
