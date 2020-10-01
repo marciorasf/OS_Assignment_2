@@ -36,6 +36,16 @@ sys_kill(void)
   return kill(pid);
 }
 
+int 
+sys_set_prio(void)
+{
+  int prio;
+  
+  if (argint(0, &prio) < 0)
+    return -1;
+  return set_prio(prio);
+}
+
 int
 sys_getpid(void)
 {
