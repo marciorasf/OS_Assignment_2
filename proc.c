@@ -148,7 +148,6 @@ userinit(void)
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
-
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -214,6 +213,10 @@ fork(void)
   pid = np->pid;
 
   acquire(&ptable.lock);
+  np->ctime=ticks;
+  np->stime=0;
+  np->retime=0;
+  np->rutime=0;
   np->priority = 2;
   np->state = RUNNABLE;
 
@@ -345,9 +348,9 @@ scheduler(void)
       if(p->priority == 2){
         highPriorityProcess = p;
         break;
-      } else if(p->priority==1){
+      } else if(p->priority==1 && !mediumPriorityProcess){
         mediumPriorityProcess = p;
-      } else if(p->priority==0){
+      } else if(p->priority==0 && !lowPriorityProcess){
         lowPriorityProcess = p;
       }
     }
