@@ -148,6 +148,7 @@ userinit(void)
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
+
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -213,6 +214,7 @@ fork(void)
   pid = np->pid;
 
   acquire(&ptable.lock);
+
   np->ctime=ticks;
   np->stime=0;
   np->retime=0;
@@ -517,9 +519,8 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING){
+      if(p->state == SLEEPING)
         p->state = RUNNABLE;
-      }
       release(&ptable.lock);
       return 0;
     }
