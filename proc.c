@@ -18,7 +18,7 @@ struct {
   struct spinlock lock;
   struct proc * head;
   struct proc * tail;
-  struct proc queue [3][NPROC_Q];      // There are can't be more than NPROC on a system
+  struct proc queue [3][NPROC_Q];      // There can't be more than NPROC on a system
 } pqueues;
 
 static struct proc *initproc;
@@ -225,10 +225,10 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+  np->priority = HIGH;
 
   acquire(&pqueues.lock);
 
-  np->priority = HIGH;
   np->state = RUNNABLE;
 
   release(&pqueues.lock);
@@ -506,9 +506,7 @@ set_prio(int prio)
 {
   if (prio < 0 || prio > 2)
     return -1;
-  acquire(&pqueues.lock);
   myproc()->priority = prio;
-  release(&pqueues.lock);
   return 0;
 }
 
