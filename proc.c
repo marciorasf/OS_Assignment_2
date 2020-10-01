@@ -150,6 +150,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
+  p->priority = HIGH;
 
   release(&ptable.lock);
 }
@@ -330,44 +331,48 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+
+  int hadHighPrioProc;
+  
+  struct proc *mdPrioQueue[NPROC];
+  int mdPrioQueueNextIndex;
+
+  struct proc *lowPrioQueue[NPROC];
+  int lowPrioQueueNextIndex;
+
+  int i;
+
   c->proc = 0;
   
   for(;;){
-    // Enable interrupts on this processor.
+    // Enable interrupts on this processor.  
     sti();
+
+    hadHighPrioProc = 0;
+    mdPrioQueueNextIndex = 0;
+    lowPrioQueueNextIndex = 0;
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-
-    struct proc *highPriorityProcess = NULL;
-    struct proc *mediumPriorityProcess = NULL;
-    struct proc *lowPriorityProcess = NULL;
 
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
-      if(p->priority == 2){
-        highPriorityProcess = p;
-        break;
-      } else if(p->priority==1 && !mediumPriorityProcess){
-        mediumPriorityProcess = p;
-      } else if(p->priority==0 && !lowPriorityProcess){
-        lowPriorityProcess = p;
-      }
-    }
+      if(hadHighPrioProc == 0){
+        if(p->priority == MEDIUM){
+          mdPrioQueue[mdPrioQueueNextIndex] = p;
+          mdPrioQueueNextIndex += 1;
+          continue;
+        } else if(p->priority == LOW){
+          lowPrioQueue[lowPrioQueueNextIndex] = p;
+          lowPrioQueueNextIndex += 1;
+          continue;
+        }
+      } 
 
-    p = NULL;
+      hadHighPrioProc = 1;
 
-    if(highPriorityProcess){
-      p = highPriorityProcess;
-    } else if(mediumPriorityProcess){
-      p = mediumPriorityProcess;
-    } else if(lowPriorityProcess){
-      p = lowPriorityProcess;
-    }
-
-    if(p){
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -383,8 +388,37 @@ scheduler(void)
       c->proc = 0;
     }
 
-    release(&ptable.lock);
+    if(hadHighPrioProc == 0){
+      if(mdPrioQueueNextIndex > 0){
+        for(i = 0; i < mdPrioQueueNextIndex; i++ ){
+          p = mdPrioQueue[i];
+          if(p->state != RUNNABLE)
+            continue;
 
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&(c->scheduler), p->context);
+          switchkvm();
+          c->proc = 0;
+        }
+      } else if (lowPrioQueueNextIndex > 0){
+        for(i = 0; i < lowPrioQueueNextIndex; i++ ){
+          p = lowPrioQueue[i];
+          if(p->state != RUNNABLE)
+            continue;
+
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&(c->scheduler), p->context);
+          switchkvm();
+          c->proc = 0;
+        }
+      }
+    }
+
+    release(&ptable.lock);
   }
 }
 
