@@ -89,3 +89,9 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int sys_set_prio(void){
+  int priority;
+  argint(0, &priority);
+  return set_prio(priority);
+}

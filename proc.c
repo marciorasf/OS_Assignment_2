@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "stddef.h"
 
 struct {
   struct spinlock lock;
@@ -213,7 +214,7 @@ fork(void)
   pid = np->pid;
 
   acquire(&ptable.lock);
-
+  np->priority = 2;
   np->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -332,10 +333,36 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    struct proc *highPriorityProcess = NULL;
+    struct proc *mediumPriorityProcess = NULL;
+    struct proc *lowPriorityProcess = NULL;
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
+      if(p->priority == 2){
+        highPriorityProcess = p;
+        break;
+      } else if(p->priority==1){
+        mediumPriorityProcess = p;
+      } else if(p->priority==0){
+        lowPriorityProcess = p;
+      }
+    }
+
+    p = NULL;
+
+    if(highPriorityProcess){
+      p = highPriorityProcess;
+    } else if(mediumPriorityProcess){
+      p = mediumPriorityProcess;
+    } else if(lowPriorityProcess){
+      p = lowPriorityProcess;
+    }
+
+    if(p){
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -350,6 +377,7 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
+
     release(&ptable.lock);
 
   }
@@ -531,4 +559,13 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int set_prio(int priority){
+  if(priority < 0 || priority >= 2){
+    return -1;
+  }
+
+  myproc()->priority = priority;
+  return 0;
 }
