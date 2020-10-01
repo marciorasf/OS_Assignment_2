@@ -52,7 +52,9 @@ trap(struct trapframe *tf)
       updateProcessStats();
       acquire(&tickslock);
       ticks++;
-      wakeup(&ticks);
+      if(ticks%INTERVAL == 0){
+        wakeup(&ticks);
+      }
       release(&tickslock);
     }
     lapiceoi();
