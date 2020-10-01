@@ -219,7 +219,7 @@ fork(void)
   np->stime=0;
   np->retime=0;
   np->rutime=0;
-  np->priority = 2;
+  np->priority = HIGH;
   np->state = RUNNABLE;
 
   release(&ptable.lock);

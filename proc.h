@@ -33,6 +33,7 @@ struct context {
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum priority {LOW, MEDIUM, HIGH};
 
 // Per-process state
 struct proc {
@@ -49,7 +50,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  int priority;                // Process priority
+  enum priority priority;      // Process priority
   uint ctime;                  // Tempo quando o processo foi criado
   int stime;                   // Tempo SLEEPING
   int retime;                  // Tempo READY(RUNNABLE)
