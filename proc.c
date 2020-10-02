@@ -332,7 +332,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
 
-  int hadHighPrioProc;
+  int hadHighPrioProcFlag;
   
   struct proc *mdPrioQueue[NPROC];
   int mdPrioQueueNextIndex;
@@ -348,7 +348,7 @@ scheduler(void)
     // Enable interrupts on this processor.  
     sti();
 
-    hadHighPrioProc = 0;
+    hadHighPrioProcFlag = 0;
     mdPrioQueueNextIndex = 0;
     lowPrioQueueNextIndex = 0;
 
@@ -359,7 +359,7 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
-      if(hadHighPrioProc == 0){
+      if(hadHighPrioProcFlag == 0){
         if(p->priority == MEDIUM){
           mdPrioQueue[mdPrioQueueNextIndex] = p;
           mdPrioQueueNextIndex += 1;
@@ -371,7 +371,7 @@ scheduler(void)
         }
       } 
 
-      hadHighPrioProc = 1;
+      hadHighPrioProcFlag = 1;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -388,7 +388,10 @@ scheduler(void)
       c->proc = 0;
     }
 
-    if(hadHighPrioProc == 0){
+    // execute if no high priority process was found
+    if(hadHighPrioProcFlag == 0){
+
+      // execute if there are medium priority processes
       if(mdPrioQueueNextIndex > 0){
         for(i = 0; i < mdPrioQueueNextIndex; i++ ){
           p = mdPrioQueue[i];
@@ -402,6 +405,9 @@ scheduler(void)
           switchkvm();
           c->proc = 0;
         }
+
+      // if there is no medium priority process
+      // execute the low priority ones
       } else if (lowPrioQueueNextIndex > 0){
         for(i = 0; i < lowPrioQueueNextIndex; i++ ){
           p = lowPrioQueue[i];
