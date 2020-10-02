@@ -109,6 +109,7 @@ int             fork(void);
 int             growproc(int);
 int             kill(int);
 int             set_prio(int);
+int             wait2(int*, int*, int*);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
 void            pinit(void);
@@ -121,6 +122,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+void            remove_proc_from_its_queue(struct proc*);
+void            add_proc_to_new_queue (struct proc*, int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

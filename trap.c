@@ -110,8 +110,11 @@ trap(struct trapframe *tf)
      #ifdef MORE_TICKS
      && ticks % INTERV == 0
      #endif
-     )
+     ) {
+    // Total rutime is the acc of the last time it started until now that it is being preempted
+    myproc()->rutime += ticks - myproc()->runningtimestamp;
     yield();
+  }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)

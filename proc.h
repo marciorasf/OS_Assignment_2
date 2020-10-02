@@ -39,6 +39,9 @@ enum priority  { LOW, MEDIUM, HIGH };
 struct proc {
   uint sz;                     // Size of process memory (bytes)
   uint ctime;                  // Tempo quando o processo foi criado
+  uint runningtimestamp;       // Ticks at the time scheduler chose this proc
+  uint runnabletimestamp;      // Ticks at the time this proc leaves the cpu (yield)
+  uint sleepingtimestamp;      // Ticks at the time this proc went to sleep
   int stime;                   // SLEEPING time
   int retime;                  // READY (RUNNABLE) time
   int rutime;                  // RUNNING time
@@ -54,6 +57,8 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
+  struct proc* next;           // The next proc in the same priority queue
+  struct proc* prev;           // The previous proc in the same priority queue
   char name[16];               // Process name (debugging)
 };
 

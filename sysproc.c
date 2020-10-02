@@ -46,6 +46,29 @@ sys_set_prio(void)
   return set_prio(prio);
 }
 
+int sys_wait2(void)
+{
+  char* retime;
+  char* rutime;
+  char* stime;
+  if (argptr(0, &retime, sizeof(int)) < 0) {
+    return -1;
+  }
+  if (argptr(1, &rutime, sizeof(int)) < 0) {
+    return -1;
+  }
+  if (argptr(2, &stime, sizeof(int)) < 0) {
+    return -1;
+  }
+  return wait2((int*)retime, (int*)rutime, (int*)stime);
+}
+
+int sys_yield(void)
+{
+  yield();
+  return 0;
+}
+
 int
 sys_getpid(void)
 {
