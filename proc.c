@@ -337,6 +337,7 @@ scheduler(void)
   
   struct proc *mdPrioQueue[NPROC];
   int mdPrioQueueNextIndex;
+  int hadMdPrioProcFlag;
 
   struct proc *lowPrioQueue[NPROC];
   int lowPrioQueueNextIndex;
@@ -350,6 +351,7 @@ scheduler(void)
     sti();
 
     hadHighPrioProcFlag = 0;
+    hadMdPrioProcFlag = 0;
     mdPrioQueueNextIndex = 0;
     lowPrioQueueNextIndex = 0;
 
@@ -361,12 +363,19 @@ scheduler(void)
         continue;
 
       if(p->priority == MEDIUM){
-        mdPrioQueue[mdPrioQueueNextIndex] = p;
-        mdPrioQueueNextIndex += 1;
+        if(hadHighPrioProcFlag == 1){
+          mdPrioQueue[mdPrioQueueNextIndex] = p;
+          mdPrioQueueNextIndex += 1;
+          hadMdPrioProcFlag = 1;
+        }
+
         continue;
       } else if(p->priority == LOW){
-        lowPrioQueue[lowPrioQueueNextIndex] = p;
-        lowPrioQueueNextIndex += 1;
+        if(hadHighPrioProcFlag == 1 || hadMdPrioProcFlag == 1){
+          lowPrioQueue[lowPrioQueueNextIndex] = p;
+          lowPrioQueueNextIndex += 1;
+        }
+
         continue;
       }
 
