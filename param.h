@@ -12,3 +12,5 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 #define INTERVAL     5     // number of clock ticks before preemption
+#define MAX_TICKS_LOW_PRIORITY 250      // max ticks that a process is mantained with priority 0
+#define MAX_TICKS_MEDIUM_PRIORITY 500   // max ticks that a process is mantained with priority 1

@@ -217,6 +217,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->ctime=ticks;
+  np->priorityTime = 0;
   np->stime=0;
   np->retime=0;
   np->rutime=0;
@@ -359,17 +360,15 @@ scheduler(void)
       if(p->state != RUNNABLE)
         continue;
 
-      if(hadHighPrioProcFlag == 0){
-        if(p->priority == MEDIUM){
-          mdPrioQueue[mdPrioQueueNextIndex] = p;
-          mdPrioQueueNextIndex += 1;
-          continue;
-        } else if(p->priority == LOW){
-          lowPrioQueue[lowPrioQueueNextIndex] = p;
-          lowPrioQueueNextIndex += 1;
-          continue;
-        }
-      } 
+      if(p->priority == MEDIUM){
+        mdPrioQueue[mdPrioQueueNextIndex] = p;
+        mdPrioQueueNextIndex += 1;
+        continue;
+      } else if(p->priority == LOW){
+        lowPrioQueue[lowPrioQueueNextIndex] = p;
+        lowPrioQueueNextIndex += 1;
+        continue;
+      }
 
       hadHighPrioProcFlag = 1;
 
@@ -619,6 +618,15 @@ void updateProcessStats(void) {
   struct proc *p;
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      p->priorityTime++;
+
+      if(p->priority == LOW && p->priorityTime > MAX_TICKS_LOW_PRIORITY){
+        p->priority = MEDIUM;
+        p->priorityTime = 0;
+      } else if(p->priority == MEDIUM && p->priorityTime > MAX_TICKS_MEDIUM_PRIORITY){
+        p->priority = HIGH;
+      }
+
       if (p->state == SLEEPING)
         p->stime++;
       if (p->state == RUNNABLE)
