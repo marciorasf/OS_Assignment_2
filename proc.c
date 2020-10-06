@@ -15,9 +15,6 @@ struct {
   struct proc queue [NPROC];      // There can't be more than NPROC on a system
 } ptable;
 
-#define T0TO1 200
-#define T1TO2 400
-
 static struct proc *initproc;
 
 int nextpid = 1;
