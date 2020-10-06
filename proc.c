@@ -615,7 +615,7 @@ procdump(void)
 }
 
 int set_prio(int priority){
-  if(priority < 0 || priority >= 2){
+  if(priority < LOW || priority > HIGH){
     return -1;
   }
 
@@ -634,6 +634,7 @@ void updateProcessStats(void) {
         p->priorityTime = 0;
       } else if(p->priority == MEDIUM && p->priorityTime > MAX_TICKS_MEDIUM_PRIORITY){
         p->priority = HIGH;
+        p->priorityTime = 0;
       }
 
       if (p->state == SLEEPING)

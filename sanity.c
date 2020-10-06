@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     for (j = 0; j < 3; j++)
         stats[2][j] /= nIoBound;
 
-    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround: %d\n\n\n", stats[0][2], stats[0][1], stats[0][0]+stats[0][1] + stats[0][2]);
+    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround: %d\n\n\n", stats[0][2], stats[0][0], stats[0][0]+stats[0][1] + stats[0][2]);
     printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n", stats[1][2], stats[1][0], stats[1][0] + stats[1][1] + stats[1][2] );
     printf(1, "IO-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n", stats[2][2], stats[2][0], stats[2][0] + stats[2][1] + stats[2][2]);
     exit();

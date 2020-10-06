@@ -51,11 +51,11 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   enum priority priority;      // Process priority
+  int priorityTime;            // Time in the current priority queue
   uint ctime;                  // Tick when the process was created
   int stime;                   // Time in SLEEPING state
   int retime;                  // Time in RUNNABLE state
   int rutime;                  // Time in RUNNING state
-  int priorityTime;            // Time in the current priority queue
 };
 
 void updateProcessStats(void);
