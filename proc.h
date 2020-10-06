@@ -51,14 +51,14 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   enum priority priority;      // Process priority
-  int priorityTime;            // Time in the current priority queue
+  int priority_time;            // Time in the current priority queue
   uint ctime;                  // Tick when the process was created
   int stime;                   // Time in SLEEPING state
   int retime;                  // Time in RUNNABLE state
   int rutime;                  // Time in RUNNING state
 };
 
-void updateProcessStats(void);
+void update_process_stats(void);
 
 // Process memory is laid out contiguously, low addresses first:
 //   text

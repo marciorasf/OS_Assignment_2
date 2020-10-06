@@ -217,7 +217,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->ctime=ticks;
-  np->priorityTime = 0;
+  np->priority_time = 0;
   np->stime=0;
   np->retime=0;
   np->rutime=0;
@@ -333,14 +333,14 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
 
-  int hadHighPrioProcFlag;
+  int had_high_priority_proc_flag;
   
-  struct proc *mdPrioQueue[NPROC];
-  int mdPrioQueueNextIndex;
-  int hadMdPrioProcFlag;
+  struct proc *md_priority_queue[NPROC];
+  int md_priority_queue_next_index;
+  int had_md_priority_flag;
 
-  struct proc *lowPrioQueue[NPROC];
-  int lowPrioQueueNextIndex;
+  struct proc *low_priority_queue[NPROC];
+  int low_priority_queue_next_index;
 
   int i;
 
@@ -350,10 +350,10 @@ scheduler(void)
     // Enable interrupts on this processor.  
     sti();
 
-    hadHighPrioProcFlag = 0;
-    hadMdPrioProcFlag = 0;
-    mdPrioQueueNextIndex = 0;
-    lowPrioQueueNextIndex = 0;
+    had_high_priority_proc_flag = 0;
+    had_md_priority_flag = 0;
+    md_priority_queue_next_index = 0;
+    low_priority_queue_next_index = 0;
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
@@ -363,23 +363,23 @@ scheduler(void)
         continue;
 
       if(p->priority == MEDIUM){
-        if(hadHighPrioProcFlag == 1){
-          mdPrioQueue[mdPrioQueueNextIndex] = p;
-          mdPrioQueueNextIndex += 1;
-          hadMdPrioProcFlag = 1;
+        if(had_high_priority_proc_flag == 1){
+          md_priority_queue[md_priority_queue_next_index] = p;
+          md_priority_queue_next_index += 1;
+          had_md_priority_flag = 1;
         }
 
         continue;
       } else if(p->priority == LOW){
-        if(hadHighPrioProcFlag == 1 || hadMdPrioProcFlag == 1){
-          lowPrioQueue[lowPrioQueueNextIndex] = p;
-          lowPrioQueueNextIndex += 1;
+        if(had_high_priority_proc_flag == 1 || had_md_priority_flag == 1){
+          low_priority_queue[low_priority_queue_next_index] = p;
+          low_priority_queue_next_index += 1;
         }
 
         continue;
       }
 
-      hadHighPrioProcFlag = 1;
+      had_high_priority_proc_flag = 1;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -397,12 +397,12 @@ scheduler(void)
     }
 
     // execute if no high priority process was found
-    if(hadHighPrioProcFlag == 0){
+    if(had_high_priority_proc_flag == 0){
 
       // execute if there are medium priority processes
-      if(mdPrioQueueNextIndex > 0){
-        for(i = 0; i < mdPrioQueueNextIndex; i++ ){
-          p = mdPrioQueue[i];
+      if(md_priority_queue_next_index > 0){
+        for(i = 0; i < md_priority_queue_next_index; i++ ){
+          p = md_priority_queue[i];
           if(p->state != RUNNABLE)
             continue;
 
@@ -416,9 +416,9 @@ scheduler(void)
 
       // if there is no medium priority process
       // execute the low priority ones
-      } else if (lowPrioQueueNextIndex > 0){
-        for(i = 0; i < lowPrioQueueNextIndex; i++ ){
-          p = lowPrioQueue[i];
+      } else if (low_priority_queue_next_index > 0){
+        for(i = 0; i < low_priority_queue_next_index; i++ ){
+          p = low_priority_queue[i];
           if(p->state != RUNNABLE)
             continue;
 
@@ -623,25 +623,27 @@ int set_prio(int priority){
   return 0;
 }
 
-void updateProcessStats(void) {
+void update_process_stats(void) {
   struct proc *p;
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      p->priorityTime++;
 
-      if(p->priority == LOW && p->priorityTime > MAX_TICKS_LOW_PRIORITY){
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+
+      if(p->priority == LOW && p->priority_time > MAX_TICKS_LOW_PRIORITY){
         p->priority = MEDIUM;
-        p->priorityTime = 0;
-      } else if(p->priority == MEDIUM && p->priorityTime > MAX_TICKS_MEDIUM_PRIORITY){
+        p->priority_time = 0;
+      } else if(p->priority == MEDIUM && p->priority_time > MAX_TICKS_MEDIUM_PRIORITY){
         p->priority = HIGH;
-        p->priorityTime = 0;
+        p->priority_time = 0;
       }
 
       if (p->state == SLEEPING)
         p->stime++;
-      if (p->state == RUNNABLE)
+      else if (p->state == RUNNABLE){
         p->retime++;
-      if (p->state == RUNNING)
+        p->priority_time++;
+      }
+      else if (p->state == RUNNING)
         p->rutime++;
   }
   release(&ptable.lock);
@@ -663,10 +665,10 @@ int wait2(int* retime, int* rutime, int* stime)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
+        // Found one.
         *retime = p->retime;
         *rutime = p->rutime;
         *stime = p->stime;
-        // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
