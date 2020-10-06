@@ -51,9 +51,8 @@ trap(struct trapframe *tf)
     if(cpuid() == 0){
       acquire(&tickslock);
       ticks++;
-      #ifdef MORE_TICKS
+      update_proc_status();
       if (ticks % INTERV == 0)
-      #endif
         wakeup(&ticks);
       release(&tickslock);
     }
@@ -107,12 +106,9 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
      tf->trapno == T_IRQ0+IRQ_TIMER 
-     #ifdef MORE_TICKS
      && ticks % INTERV == 0
-     #endif
      ) {
     // Total rutime is the acc of the last time it started until now that it is being preempted
-    myproc()->rutime += ticks - myproc()->runningtimestamp;
     yield();
   }
 

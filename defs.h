@@ -124,6 +124,7 @@ void            wakeup(void*);
 void            yield(void);
 void            remove_proc_from_its_queue(struct proc*);
 void            add_proc_to_new_queue (struct proc*, int);
+void            update_proc_status(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

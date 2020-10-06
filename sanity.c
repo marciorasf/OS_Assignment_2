@@ -2,7 +2,7 @@
 #include "stat.h"
 #include "user.h"
 
-#define CONST 2
+#define CONST 5
 
 int main (int argc, char* argv[]) {
     if(argc < 2) {
@@ -20,40 +20,47 @@ int main (int argc, char* argv[]) {
             exit();
         }
         else if(pid[i] == 0) {
+            // CPU-BOUND
             if(getpid() % 3 == 0){
                 set_prio(HIGH);
                 uint j, k;
+                double z = 0;
                 for(j = 0; j < 100; ++j) {
                     for(k = 0; k < 100; ++k) {
-                        asm volatile("nop");
+                        z = z + 3.14;
                     }
                 }
+            // S-CPU
             } else if(getpid() % 3 == 1) {
                 set_prio(MEDIUM);
                 uint j, k;
+                double z = 0;
                 for(j = 0; j < 100; ++j) {
-                    for(k = 0; k < 1000; ++k) {
+                    for(k = 0; k < 1000000; ++k) {
                         if (k % 100 == 0){
                             yield();
+                        } else {
+                            z = z + 3.14;
                         }
-                        asm volatile("nop");
                     }
                 }
+            // IO-BOUND
             } else {
                 set_prio(LOW);
                 uint j;
-                for(j = 0; j < 1; ++j) {
+                for(j = 0; j < 100; ++j) {
                     sleep(1);
                 }
             }
             exit();
         }
     }
-    int c_pid;
+    //int c_pid;
     for (i = 0; i < CONST*n; ++i) {
-        int retime, rutime, stime;
-        c_pid = wait2(&retime, &rutime, &stime);
-        printf(1, "pid: %d, ready: %d, run: %d, sleep: %d\n", c_pid, retime, rutime, stime);
+        int retime=0, rutime=0, stime=0;
+        //c_pid = 
+        wait2(&retime, &rutime, &stime);
+        //printf(1, "Type %s, pid: %d, ready: %d, run: %d, sleep: %d\n", (c_pid % 3 == 0) ? "CPU-BOUND" : (c_pid % 3 == 1) ? "S-CPU" : "IO-BOUND", c_pid, retime, rutime, stime);
     }
     exit();
 }

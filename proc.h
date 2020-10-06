@@ -39,9 +39,6 @@ enum priority  { LOW, MEDIUM, HIGH };
 struct proc {
   uint sz;                     // Size of process memory (bytes)
   uint ctime;                  // Tempo quando o processo foi criado
-  uint runningtimestamp;       // Ticks at the time scheduler chose this proc
-  uint runnabletimestamp;      // Ticks at the time this proc leaves the cpu (yield)
-  uint sleepingtimestamp;      // Ticks at the time this proc went to sleep
   int stime;                   // SLEEPING time
   int retime;                  // READY (RUNNABLE) time
   int rutime;                  // RUNNING time

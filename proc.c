@@ -15,6 +15,9 @@ struct {
   struct proc queue [NPROC];      // There can't be more than NPROC on a system
 } ptable;
 
+#define T0TO1 200
+#define T1TO2 400
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -228,8 +231,6 @@ fork(void)
   np->stime = 0;
   np->retime = 0;
   np->rutime = 0;
-  np->runnabletimestamp = np->ctime;
-  np->runningtimestamp = 0;
 
   acquire(&ptable.lock);
 
@@ -310,7 +311,6 @@ wait(void)
       
       if(p->state == ZOMBIE){
         // Found one.
-        remove_proc_from_its_queue(p);
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -320,6 +320,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+        remove_proc_from_its_queue(p);
         release(&ptable.lock);
         return pid;
       }
@@ -351,7 +352,6 @@ scheduler(void)
   struct cpu *c = mycpu();
   struct proc *curr_queue;
   c->proc = 0;
-  int prio;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -360,6 +360,7 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
 
+    int prio;
     for(prio = HIGH; prio >= LOW; --prio){
       curr_queue = ptable.heads[prio];
       // Loop on each queue
@@ -373,12 +374,7 @@ scheduler(void)
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
-        if (p->retime == 0) { // Calculates the time it spent on the ready state for the first time
-          p->retime = ticks - p->ctime;
-        } else { // Calculates the time it spent on the state since the last preemption
-          p->retime += ticks - p->runnabletimestamp;
-        }
-        p->runningtimestamp = ticks;
+
         swtch(&(c->scheduler), p->context);
         switchkvm();
         // Process is done running for now.
@@ -423,7 +419,6 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
-  myproc()->runnabletimestamp = ticks;
   sched();
   release(&ptable.lock);
 }
@@ -455,7 +450,6 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
   if(p == 0)
     panic("sleep");
 
@@ -475,7 +469,6 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
-  p->sleepingtimestamp = ticks;
 
   sched();
 
@@ -500,7 +493,6 @@ wakeup1(void *chan)
   for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
     if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
-      p->stime += ticks - p->sleepingtimestamp;
     }
   }
 }
@@ -521,7 +513,7 @@ remove_proc_from_its_queue (struct proc *p)
   {
     ptable.heads[p->priority] = p->next;
     ptable.heads[p->priority]->prev = p->next;
-    if (ptable.tails[p->priority] == p) { // If p is the only proc on queue
+    if (ptable.tails[p->priority] == p) { // p is the only proc on queue
       ptable.tails[p->priority] = 0;
     }
     p->next = 0;
@@ -591,14 +583,11 @@ wait2(int* retime, int* rutime, int* stime)
   }
   struct proc *p;
   int havekids, pid;
-  struct proc *curproc = myproc();
-  *retime = myproc()->retime;
-  *rutime = myproc()->rutime;
-  *stime  = myproc()->stime;
   
   acquire(&ptable.lock);
-  for(;;){
+  struct proc *curproc = myproc();
     // Scan through table looking for exited children.
+  for(;;){
     havekids = 0;
     for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
       if(p->parent != curproc)
@@ -606,7 +595,9 @@ wait2(int* retime, int* rutime, int* stime)
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
-        remove_proc_from_its_queue(p);
+        *retime = p->retime;
+        *rutime = p->rutime;
+        *stime  = p->stime;
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -616,6 +607,7 @@ wait2(int* retime, int* rutime, int* stime)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+        remove_proc_from_its_queue(p);
         release(&ptable.lock);
         return pid;
       }
@@ -677,7 +669,7 @@ procdump(void)
   char *state;
   uint pc[10];
 
-  
+  cprintf("\ntick %d\n", ticks);
   for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
@@ -685,7 +677,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %d %s %s", p->pid, p->priority, state, p->name);
+    cprintf("\n%d %d %s %s", p->pid, p->priority, state, p->name);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
@@ -693,4 +685,36 @@ procdump(void)
     }
     cprintf("\n");
   }
+  cprintf("--------------\n");
+}
+
+void 
+update_proc_status (void)
+{
+  struct proc *p;
+  acquire(&ptable.lock);
+  for (p = ptable.queue; p < &ptable.queue[NPROC]; p++) {
+    if (p->priority == LOW && p->retime > T0TO1) {
+      remove_proc_from_its_queue(p);
+      add_proc_to_new_queue(p, MEDIUM);
+    } else if (p->priority == MEDIUM && p->retime > T1TO2) {
+      remove_proc_from_its_queue(p);
+      add_proc_to_new_queue(p, HIGH);
+    }
+    switch (p->state)
+    {
+    case SLEEPING:
+      p->stime++;
+      break;
+    case RUNNING:
+      p->rutime++;
+      break;
+    case RUNNABLE:
+      p->retime++;
+      break;
+    default:
+      break;
+    }
+  }
+  release(&ptable.lock);
 }
