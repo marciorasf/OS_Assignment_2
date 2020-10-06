@@ -33,13 +33,19 @@ struct context {
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum priority  { LOW, MEDIUM, HIGH };
 
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
+  uint ctime;                  // Tempo quando o processo foi criado
+  int stime;                   // SLEEPING time
+  int retime;                  // READY (RUNNABLE) time
+  int rutime;                  // RUNNING time
   pde_t* pgdir;                // Page table
   char *kstack;                // Bottom of kernel stack for this process
   enum procstate state;        // Process state
+  enum priority priority;      // Priority of process
   int pid;                     // Process ID
   struct proc *parent;         // Parent process
   struct trapframe *tf;        // Trap frame for current syscall
@@ -48,6 +54,8 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
+  struct proc* next;           // The next proc in the same priority queue
+  struct proc* prev;           // The previous proc in the same priority queue
   char name[16];               // Process name (debugging)
 };
 

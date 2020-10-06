@@ -7,9 +7,12 @@
 #include "proc.h"
 #include "spinlock.h"
 
+
 struct {
   struct spinlock lock;
-  struct proc proc[NPROC];
+  struct proc* heads [3];
+  struct proc* tails [3];
+  struct proc queue [NPROC];      // There can't be more than NPROC on a system
 } ptable;
 
 static struct proc *initproc;
@@ -78,7 +81,7 @@ allocproc(void)
 
   acquire(&ptable.lock);
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  for(p = ptable.queue; p < &ptable.queue[NPROC]; p++)
     if(p->state == UNUSED)
       goto found;
 
@@ -88,6 +91,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->priority = HIGH;
+  p->next = 0;
+  p->prev = 0;
 
   release(&ptable.lock);
 
@@ -124,6 +130,7 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
+  p->prev = p;
   
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
@@ -149,6 +156,12 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
+  ptable.heads[HIGH] = initproc;
+  ptable.tails[HIGH] = initproc;
+  ptable.heads[MEDIUM] = 0;
+  ptable.tails[MEDIUM] = 0;
+  ptable.heads[LOW] = 0;
+  ptable.tails[LOW] = 0;
 
   release(&ptable.lock);
 }
@@ -211,10 +224,18 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+  np->ctime = ticks;
+  np->stime = 0;
+  np->retime = 0;
+  np->rutime = 0;
 
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->next = 0;
+  np->prev = ptable.tails[HIGH];
+  ptable.tails[HIGH]->next = np;
+  ptable.tails[HIGH] = np;
 
   release(&ptable.lock);
 
@@ -253,7 +274,7 @@ exit(void)
   wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
     if(p->parent == curproc){
       p->parent = initproc;
       if(p->state == ZOMBIE)
@@ -280,10 +301,11 @@ wait(void)
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
       if(p->parent != curproc)
         continue;
       havekids = 1;
+      
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
@@ -295,6 +317,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+        remove_proc_from_its_queue(p);
         release(&ptable.lock);
         return pid;
       }
@@ -324,6 +347,7 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  struct proc *curr_queue;
   c->proc = 0;
   
   for(;;){
@@ -332,23 +356,28 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+    int prio;
+    for(prio = HIGH; prio >= LOW; --prio){
+      curr_queue = ptable.heads[prio];
+      // Loop on each queue
+      for(p = curr_queue; p != 0; p=p->next){
+        if(p->state != RUNNABLE)
+          continue;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
     }
     release(&ptable.lock);
 
@@ -418,7 +447,6 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
   if(p == 0)
     panic("sleep");
 
@@ -459,9 +487,11 @@ wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+  for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
+    if(p->state == SLEEPING && p->chan == chan) {
       p->state = RUNNABLE;
+    }
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -473,6 +503,124 @@ wakeup(void *chan)
   release(&ptable.lock);
 }
 
+void 
+remove_proc_from_its_queue (struct proc *p)
+{
+  if (ptable.heads[p->priority] == p) // p is the head
+  {
+    ptable.heads[p->priority] = p->next;
+    ptable.heads[p->priority]->prev = p->next;
+    if (ptable.tails[p->priority] == p) { // p is the only proc on queue
+      ptable.tails[p->priority] = 0;
+    }
+    p->next = 0;
+  }
+  else if (ptable.tails[p->priority] == p) // p is the tail
+  {
+    ptable.tails[p->priority] = p->prev;
+    ptable.tails[p->priority]->next = 0;
+  } else // p is in the middle
+  {
+    p->prev->next = p->next;
+    p->next->prev = p->prev;
+  }
+}
+
+void 
+add_proc_to_new_queue (struct proc *p, int new_prio)
+{
+  // Changing process to a queue that:
+  //     has not been initialized
+  //     got emptied
+  if (p == 0)
+  {
+    panic("Trying to add null proc to queue");
+    return;
+  }
+  p->priority = new_prio;
+  if (ptable.heads[new_prio] == 0) {
+    ptable.heads[new_prio] = p;
+    ptable.tails[new_prio] = p;
+    p->prev = p;
+    p->next = 0;
+  } else {
+    ptable.tails[new_prio]->next = p;
+    p->prev = ptable.tails[new_prio];
+    ptable.tails[new_prio] = p;
+    p->next = 0;
+  }
+}
+
+int
+set_prio(int prio)
+{
+  if (prio < LOW || prio > HIGH)
+    return -1;
+  struct proc *myp = myproc();
+  // Nothing to be done
+  if(prio == myp->priority){
+    return 0;
+  }
+  acquire(&ptable.lock);
+
+  remove_proc_from_its_queue(myp);
+
+  add_proc_to_new_queue(myp, prio);
+
+  release(&ptable.lock);
+  return 0;
+}
+
+int
+wait2(int* retime, int* rutime, int* stime)
+{
+  if (!retime || !rutime || !stime) {
+    panic("wait2 recieved null argument");
+    return -1;
+  }
+  struct proc *p;
+  int havekids, pid;
+  
+  acquire(&ptable.lock);
+  struct proc *curproc = myproc();
+    // Scan through table looking for exited children.
+  for(;;){
+    havekids = 0;
+    for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
+      if(p->parent != curproc)
+        continue;
+      havekids = 1;
+      if(p->state == ZOMBIE){
+        // Found one.
+        *retime = p->retime;
+        *rutime = p->rutime;
+        *stime  = p->stime;
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        freevm(p->pgdir);
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->state = UNUSED;
+        remove_proc_from_its_queue(p);
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || curproc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
 // Kill the process with the given pid.
 // Process won't exit until it returns
 // to user space (see trap in trap.c).
@@ -482,7 +630,8 @@ kill(int pid)
   struct proc *p;
 
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  
+  for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
@@ -492,6 +641,7 @@ kill(int pid)
       return 0;
     }
   }
+  
   release(&ptable.lock);
   return -1;
 }
@@ -516,14 +666,15 @@ procdump(void)
   char *state;
   uint pc[10];
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  cprintf("\ntick %d\n", ticks);
+  for(p = ptable.queue; p < &ptable.queue[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    cprintf("\n%d %d %s %s", p->pid, p->priority, state, p->name);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
@@ -531,4 +682,36 @@ procdump(void)
     }
     cprintf("\n");
   }
+  cprintf("--------------\n");
+}
+
+void 
+update_proc_status (void)
+{
+  struct proc *p;
+  acquire(&ptable.lock);
+  for (p = ptable.queue; p < &ptable.queue[NPROC]; p++) {
+    if (p->priority == LOW && p->retime > T0TO1) {
+      remove_proc_from_its_queue(p);
+      add_proc_to_new_queue(p, MEDIUM);
+    } else if (p->priority == MEDIUM && p->retime > T1TO2) {
+      remove_proc_from_its_queue(p);
+      add_proc_to_new_queue(p, HIGH);
+    }
+    switch (p->state)
+    {
+    case SLEEPING:
+      p->stime++;
+      break;
+    case RUNNING:
+      p->rutime++;
+      break;
+    case RUNNABLE:
+      p->retime++;
+      break;
+    default:
+      break;
+    }
+  }
+  release(&ptable.lock);
 }

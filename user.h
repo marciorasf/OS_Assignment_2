@@ -1,15 +1,19 @@
 struct stat;
 struct rtcdate;
 
+enum priority  { LOW, MEDIUM, HIGH };
+
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
 int wait(void);
+int wait2(int*, int*, int*);
 int pipe(int*);
 int write(int, const void*, int);
 int read(int, void*, int);
 int close(int);
 int kill(int);
+int set_prio(int);
 int exec(char*, char**);
 int open(const char*, int);
 int mknod(const char*, short, short);
@@ -23,6 +27,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+void yield(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
