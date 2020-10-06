@@ -40,15 +40,12 @@ int main(int argc, char *argv[])
             switch (j)
             {
             case 0:
-                set_prio(0);
                 cpuBoundProcess();
                 break;
             case 1:
-                set_prio(1);
                 shortCpuProcess();
                 break;
             case 2:
-                set_prio(2);
                 ioBoundProcess();
                 break;
             }
