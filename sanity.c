@@ -16,19 +16,11 @@ int main(int argc, char *argv[])
     int i;
     int n;
     int j = 0;
-
-
-    int stats[3][3];
-
-    for (i = 0; i < 3; i++)
-        for (j = 0; j < 3; j++)
-            stats[i][j] = 0;
+    int nCpuB = 0;
+    int nSCpu = 0;
+    int nIoB = 0;
 
     n = atoi(argv[1]) * 5;
-
-    int nCpuBound = 0;
-    int nSCpuBound = 0; 
-    int nIoBound = 0;
 
     int pid;
     for (i = 0; i < n; i++)
@@ -56,53 +48,61 @@ int main(int argc, char *argv[])
         }
         continue; // father continues to spawn the next child
     }
+    int cpu_b_acc_rutime = 0;
+    int cpu_b_acc_retime = 0;
+    int cpu_b_acc_stime = 0;
 
-    int retime;
-    int rutime;
-    int stime;
-    
+    int s_cpu_acc_rutime = 0;
+    int s_cpu_acc_retime = 0;
+    int s_cpu_acc_stime = 0;
+
+    int io_b_acc_rutime = 0;
+    int io_b_acc_retime = 0;
+    int io_b_acc_stime = 0;
     for (i = 0; i < n; i++)
     {
+        int retime = 0;
+        int rutime = 0;
+        int stime = 0;
         pid = wait2(&retime, &rutime, &stime);
+        if (getProcessType(pid) == 0) {
+            nCpuB++;
+        } else if (getProcessType(pid) == 1) {
+            nSCpu++;
+        } else {
+            nIoB++;
+        }
         int processType = getProcessType(pid); // correlates to j in the dispatching loop
-        switch (processType)
-        {
-        case 0: // CPU bound processes
-            nCpuBound += 1;
-            printf(1, "pid: %d, type: CPU-BOUND, ready: %d, running: %d, sleeping: %d\n", pid, retime, rutime, stime);
-            stats[0][0] += retime;
-            stats[0][1] += rutime;
-            stats[0][2] += stime;
-            break;
-        case 1: // CPU bound processes, short tasks
-            nSCpuBound += 1;
-            printf(1, "pid: %d, type: S-CPU, ready: %d, running: %d, sleeping: %d\n", pid, retime, rutime, stime);
-            stats[1][0] += retime;
-            stats[1][1] += rutime;
-            stats[1][2] += stime;
-            break;
-        case 2: // simulating I/O bound processes
-            nIoBound += 1;
-            printf(1, "pid: %d, type: IO-Bound, ready: %d, running: %d, sleeping: %d\n", pid, retime, rutime, stime);
-            stats[2][0] += retime;
-            stats[2][1] += rutime;
-            stats[2][2] += stime;
-            break;
+        printf(1, "pid %d, type %d, ready %d, running %d, sleeping %d\n", processType, pid, retime, rutime, stime);
+        if (processType == 0) {
+            cpu_b_acc_rutime += rutime;
+            cpu_b_acc_retime += retime;
+            cpu_b_acc_stime += stime;
+        } else if (processType == 1) {
+            s_cpu_acc_rutime += rutime;
+            s_cpu_acc_retime += retime;
+            s_cpu_acc_stime += stime;
+        } else {
+            io_b_acc_rutime += rutime;
+            io_b_acc_retime += retime;
+            io_b_acc_stime += stime;
         }
     }
+    int t_med_s_cpu_b = cpu_b_acc_stime / nCpuB;
+    int t_med_ru_cpu_b = cpu_b_acc_rutime / nCpuB;
+    int t_med_re_cpu_b = cpu_b_acc_retime / nCpuB;
 
-    for (j = 0; j < 3; j++)
-        stats[0][j] /= nCpuBound;
+    int t_med_s_s_cpu = s_cpu_acc_stime / nSCpu;
+    int t_med_ru_s_cpu = s_cpu_acc_rutime / nSCpu;
+    int t_med_re_s_cpu = s_cpu_acc_retime / nSCpu;
 
-    for (j = 0; j < 3; j++)
-        stats[1][j] /= nSCpuBound;
+    int t_med_s_io_b = io_b_acc_stime / nIoB;
+    int t_med_ru_io_b = io_b_acc_rutime / nIoB;
+    int t_med_re_io_b = io_b_acc_retime / nIoB;
 
-    for (j = 0; j < 3; j++)
-        stats[2][j] /= nIoBound;
-
-    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround: %d\n\n\n", stats[0][2], stats[0][0], stats[0][0]+stats[0][1] + stats[0][2]);
-    printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n", stats[1][2], stats[1][0], stats[1][0] + stats[1][1] + stats[1][2] );
-    printf(1, "IO-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n", stats[2][2], stats[2][0], stats[2][0] + stats[2][1] + stats[2][2]);
+    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround: %d\n\n\n", t_med_s_cpu_b, t_med_re_cpu_b, t_med_ru_cpu_b + t_med_re_cpu_b + t_med_s_s_cpu);
+    printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n",    t_med_s_s_cpu, t_med_re_s_cpu, t_med_ru_s_cpu + t_med_re_s_cpu + t_med_s_s_cpu);
+    printf(1, "IO-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n", t_med_s_io_b,  t_med_re_io_b,  t_med_ru_io_b  + t_med_re_io_b  + t_med_s_io_b);
     exit();
 }
 
@@ -112,9 +112,9 @@ int cpuBoundProcess()
     {
         for (int j = 0; j < 1000000; j++)
         {
+            asm("");
         }
     }
-
     return 0;
 }
 
@@ -122,13 +122,11 @@ int shortCpuProcess()
 {
     for (int i = 0; i < 100; i++)
     {
-        for (int j = 0; j < 10000; j++)
+        for (int j = 0; j < 1000000; j++)
         {
-            for (int j = 0; j < 100; j++)
-            {
-            }
-
-            yield();
+            if ((j+1) % 100 == 0)
+                yield();
+            asm("");
         }
     }
 
@@ -141,7 +139,6 @@ int ioBoundProcess()
     {
         sleep(1);
     }
-
     return 0;
 }
 

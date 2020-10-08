@@ -1720,7 +1720,6 @@ uio()
     printf (1, "fork failed\n");
     exit();
   }
-  printf(1, "waiting uio");
   wait();
   printf(1, "uio test done\n");
 }
@@ -1757,7 +1756,7 @@ main(int argc, char *argv[])
   }
   close(open("usertests.ran", O_CREATE));
 
-  /* argptest();
+  argptest();
   createdelete();
   linkunlink();
   concreate();
@@ -1794,7 +1793,7 @@ main(int argc, char *argv[])
   dirfile();
   iref();
   forktest();
-  bigdir(); // slow */
+  bigdir(); // slow
 
   uio();
 
