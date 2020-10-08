@@ -109,6 +109,7 @@ int cpuBoundProcess()
     {
         for (int j = 0; j < 1000000; j++)
         {
+            asm("");
         }
     }
 
@@ -123,6 +124,7 @@ int shortCpuProcess()
         {
             for (int j = 0; j < 100; j++)
             {
+                asm("");
             }
 
             yield();
