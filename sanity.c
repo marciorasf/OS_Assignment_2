@@ -1,10 +1,10 @@
 #include "types.h"
 #include "user.h"
 
-int cpuBoundProcess();
-int shortCpuProcess();
-int ioBoundProcess();
-int getProcessType(int pid);
+int cpu_bound_process();
+int short_cpu_process();
+int io_bound_process();
+int get_process_type(int pid);
 
 int main(int argc, char *argv[])
 {
@@ -16,9 +16,9 @@ int main(int argc, char *argv[])
     int i;
     int n;
     int j = 0;
-    int nCpuB = 0;
-    int nSCpu = 0;
-    int nIoB = 0;
+    int n_cpu_bound_proc = 0;
+    int n_s_cpu_proc = 0;
+    int n_io_bound_proc = 0;
 
     n = atoi(argv[1]) * 5;
 
@@ -28,26 +28,27 @@ int main(int argc, char *argv[])
         pid = fork();
         if (pid == 0)
         {                           //child
-            j = getProcessType(getpid());
+            j = get_process_type(getpid());
             switch (j)
             {
             case 0:
                 set_prio(2);
-                cpuBoundProcess();
+                cpu_bound_process();
                 break;
             case 1:
                 set_prio(1);
-                shortCpuProcess();
+                short_cpu_process();
                 break;
             case 2:
                 set_prio(0);
-                ioBoundProcess();
+                io_bound_process();
                 break;
             }
             exit(); // children exit here
         }
         continue; // father continues to spawn the next child
     }
+
     int cpu_b_acc_rutime = 0;
     int cpu_b_acc_retime = 0;
     int cpu_b_acc_stime = 0;
@@ -59,26 +60,33 @@ int main(int argc, char *argv[])
     int io_b_acc_rutime = 0;
     int io_b_acc_retime = 0;
     int io_b_acc_stime = 0;
+
+    char processes_types_names[][10] = {"CPU-Bound", "S-CPU", "IO-Bound"};
+
     for (i = 0; i < n; i++)
     {
         int retime = 0;
         int rutime = 0;
         int stime = 0;
+        
         pid = wait2(&retime, &rutime, &stime);
-        if (getProcessType(pid) == 0) {
-            nCpuB++;
-        } else if (getProcessType(pid) == 1) {
-            nSCpu++;
+        int process_type = get_process_type(pid);
+
+        printf(1, "PID: %d, Type: %s, Ready: %d, Running: %d, Sleeping: %d\n", pid, processes_types_names[process_type], retime, rutime, stime);
+
+        if (process_type == 0) {
+            n_cpu_bound_proc++;
+        } else if (process_type == 1) {
+            n_s_cpu_proc++;
         } else {
-            nIoB++;
+            n_io_bound_proc++;
         }
-        int processType = getProcessType(pid); // correlates to j in the dispatching loop
-        printf(1, "pid %d, type %d, ready %d, running %d, sleeping %d\n", processType, pid, retime, rutime, stime);
-        if (processType == 0) {
+
+        if (process_type == 0) {
             cpu_b_acc_rutime += rutime;
             cpu_b_acc_retime += retime;
             cpu_b_acc_stime += stime;
-        } else if (processType == 1) {
+        } else if (process_type == 1) {
             s_cpu_acc_rutime += rutime;
             s_cpu_acc_retime += retime;
             s_cpu_acc_stime += stime;
@@ -88,17 +96,18 @@ int main(int argc, char *argv[])
             io_b_acc_stime += stime;
         }
     }
-    int t_med_s_cpu_b = cpu_b_acc_stime / nCpuB;
-    int t_med_ru_cpu_b = cpu_b_acc_rutime / nCpuB;
-    int t_med_re_cpu_b = cpu_b_acc_retime / nCpuB;
 
-    int t_med_s_s_cpu = s_cpu_acc_stime / nSCpu;
-    int t_med_ru_s_cpu = s_cpu_acc_rutime / nSCpu;
-    int t_med_re_s_cpu = s_cpu_acc_retime / nSCpu;
+    int t_med_s_cpu_b = cpu_b_acc_stime / n_cpu_bound_proc;
+    int t_med_ru_cpu_b = cpu_b_acc_rutime / n_cpu_bound_proc;
+    int t_med_re_cpu_b = cpu_b_acc_retime / n_cpu_bound_proc;
 
-    int t_med_s_io_b = io_b_acc_stime / nIoB;
-    int t_med_ru_io_b = io_b_acc_rutime / nIoB;
-    int t_med_re_io_b = io_b_acc_retime / nIoB;
+    int t_med_s_s_cpu = s_cpu_acc_stime / n_s_cpu_proc;
+    int t_med_ru_s_cpu = s_cpu_acc_rutime / n_s_cpu_proc;
+    int t_med_re_s_cpu = s_cpu_acc_retime / n_s_cpu_proc;
+
+    int t_med_s_io_b = io_b_acc_stime / n_io_bound_proc;
+    int t_med_ru_io_b = io_b_acc_rutime / n_io_bound_proc;
+    int t_med_re_io_b = io_b_acc_retime / n_io_bound_proc;
 
     printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround: %d\n\n\n", t_med_s_cpu_b, t_med_re_cpu_b, t_med_ru_cpu_b + t_med_re_cpu_b + t_med_s_s_cpu);
     printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n",    t_med_s_s_cpu, t_med_re_s_cpu, t_med_ru_s_cpu + t_med_re_s_cpu + t_med_s_s_cpu);
@@ -106,7 +115,7 @@ int main(int argc, char *argv[])
     exit();
 }
 
-int cpuBoundProcess()
+int cpu_bound_process()
 {
     for (int i = 0; i < 100; i++)
     {
@@ -118,7 +127,7 @@ int cpuBoundProcess()
     return 0;
 }
 
-int shortCpuProcess()
+int short_cpu_process()
 {
     for (int i = 0; i < 100; i++)
     {
@@ -133,7 +142,7 @@ int shortCpuProcess()
     return 0;
 }
 
-int ioBoundProcess()
+int io_bound_process()
 {
     for (int i = 0; i < 100; i++)
     {
@@ -142,6 +151,6 @@ int ioBoundProcess()
     return 0;
 }
 
-int getProcessType(int pid){
+int get_process_type(int pid){
     return  (pid - 4) % 3;
 }
