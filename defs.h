@@ -125,6 +125,7 @@ void            yield(void);
 void            remove_proc_from_its_queue(struct proc*);
 void            add_proc_to_new_queue (struct proc*, int);
 void            update_proc_status(void);
+int             rewind_prio_if_exists_runnable_proc_on_higher_prio(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

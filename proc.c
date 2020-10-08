@@ -334,6 +334,43 @@ wait(void)
   }
 }
 
+int
+rewind_prio_if_exists_runnable_proc_on_higher_prio(int prio)
+{
+  if (prio == HIGH) {
+    // Already on HIGH
+    return HIGH;
+  }
+  if (prio == MEDIUM) {
+    struct proc * p;
+    // Search HIGH
+    for(p = ptable.heads[HIGH]; p != 0; p=p->next){
+      if (p->state == RUNNABLE) {
+        return HIGH;
+      }
+    }
+    return MEDIUM;
+  }
+  if (prio == LOW) {
+    struct proc * p;
+    // Search HIGH
+    for(p = ptable.heads[HIGH]; p != 0; p=p->next){
+      if (p->state == RUNNABLE) {
+        return HIGH;
+      }
+    }
+    // Search MEDIUM
+    for(p = ptable.heads[MEDIUM]; p != 0; p=p->next){
+      if (p->state == RUNNABLE) {
+        return MEDIUM;
+      }
+    }
+    return LOW;
+  } else {
+    panic("Unkown prio");
+  }
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -359,6 +396,7 @@ scheduler(void)
 
     int prio;
     for(prio = HIGH; prio >= LOW; --prio){
+      prio = rewind_prio_if_exists_runnable_proc_on_higher_prio(prio);
       curr_queue = ptable.heads[prio];
       // Loop on each queue
       for(p = curr_queue; p != 0; p=p->next){
