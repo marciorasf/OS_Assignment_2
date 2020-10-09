@@ -109,9 +109,9 @@ int main(int argc, char *argv[])
     int t_med_ru_io_b = io_b_acc_rutime / n_io_bound_proc;
     int t_med_re_io_b = io_b_acc_retime / n_io_bound_proc;
 
-    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround: %d\n\n\n", t_med_s_cpu_b, t_med_re_cpu_b, t_med_ru_cpu_b + t_med_re_cpu_b + t_med_s_s_cpu);
-    printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n",    t_med_s_s_cpu, t_med_re_s_cpu, t_med_ru_s_cpu + t_med_re_s_cpu + t_med_s_s_cpu);
-    printf(1, "IO-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n\n", t_med_s_io_b,  t_med_re_io_b,  t_med_ru_io_b  + t_med_re_io_b  + t_med_s_io_b);
+    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n", t_med_s_cpu_b, t_med_re_cpu_b, t_med_ru_cpu_b + t_med_re_cpu_b + t_med_s_s_cpu);
+    printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n",    t_med_s_s_cpu, t_med_re_s_cpu, t_med_ru_s_cpu + t_med_re_s_cpu + t_med_s_s_cpu);
+    printf(1, "IO-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n", t_med_s_io_b,  t_med_re_io_b,  t_med_ru_io_b  + t_med_re_io_b  + t_med_s_io_b);
     exit();
 }
 
