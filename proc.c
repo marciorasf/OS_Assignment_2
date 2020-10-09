@@ -396,7 +396,7 @@ scheduler(void)
 
     int prio;
     for(prio = HIGH; prio >= LOW; --prio){
-      prio = rewind_if_exists_runble_proc_on_higher_queue(prio);
+      prio = rewind_if_exists_runnable_proc_on_higher_queue(prio);
       curr_queue = ptable.heads[prio];
       // Loop on each queue
       for(p = curr_queue; p != 0; p=p->next){
