@@ -335,7 +335,7 @@ wait(void)
 }
 
 int
-rewind_prio_if_exists_runble_proc_on_higher_queue(int prio)
+rewind_if_exists_runnable_proc_on_higher_queue(int prio)
 {
   if (prio == HIGH) {
     // Already on HIGH
