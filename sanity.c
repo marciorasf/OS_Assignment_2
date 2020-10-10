@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
         pid = wait2(&retime, &rutime, &stime);
         int process_type = get_process_type(pid);
 
-        printf(1, "PID: %d, Type: %s, Ready: %d, Running: %d, Sleeping: %d\n", pid, processes_types_names[process_type], retime, rutime, stime);
+        printf(1, "PID: %d, Type: %s, Running: %d, Ready: %d, Sleeping: %d, Turnaround:%d\n", pid, processes_types_names[process_type], rutime, retime, stime, retime + rutime + stime);
 
         if (process_type == 0) {
             n_cpu_bound_proc++;
@@ -109,9 +109,9 @@ int main(int argc, char *argv[])
     int t_med_ru_io_b = io_b_acc_rutime / n_io_bound_proc;
     int t_med_re_io_b = io_b_acc_retime / n_io_bound_proc;
 
-    printf(1, "\n\nCPU-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n", t_med_s_cpu_b, t_med_re_cpu_b, t_med_ru_cpu_b + t_med_re_cpu_b + t_med_s_s_cpu);
-    printf(1, "S-CPU:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n",    t_med_s_s_cpu, t_med_re_s_cpu, t_med_ru_s_cpu + t_med_re_s_cpu + t_med_s_s_cpu);
-    printf(1, "IO-Bound:\nAverage sleeping time: %d\nAverage ready time: %d\nAverage turnaround time: %d\n\n", t_med_s_io_b,  t_med_re_io_b,  t_med_ru_io_b  + t_med_re_io_b  + t_med_s_io_b);
+    printf(1, "\nCPU-Bound:\nAverage running time: %d\nAverage ready time: %d\nAverage sleeping time: %d\nAverage turnaround time: %d\n", t_med_ru_cpu_b, t_med_re_cpu_b, t_med_s_cpu_b, t_med_ru_cpu_b + t_med_re_cpu_b + t_med_s_cpu_b);
+    printf(1, "\nS-CPU:\nAverage running time: %d\nAverage ready time: %d\nAverage sleeping time: %d\nAverage turnaround time: %d\n", t_med_ru_s_cpu, t_med_re_s_cpu, t_med_s_s_cpu, t_med_ru_s_cpu + t_med_re_s_cpu + t_med_s_s_cpu);
+    printf(1, "\nIO-Bound:\nAverage running time: %d\nAverage ready time: %d\nAverage sleeping time: %d\nAverage turnaround time: %d\n\n", t_med_ru_io_b, t_med_re_io_b, t_med_s_io_b, t_med_ru_io_b + t_med_re_io_b + t_med_s_io_b);
     exit();
 }
 
@@ -121,7 +121,7 @@ int cpu_bound_process()
     {
         for (int j = 0; j < 1000000; j++)
         {
-            asm("");
+            asm("nop");
         }
     }
     return 0;
@@ -135,7 +135,7 @@ int short_cpu_process()
         {
             if ((j+1) % 100 == 0)
                 yield();
-            asm("");
+            asm("nop");
         }
     }
 
