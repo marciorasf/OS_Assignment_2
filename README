@@ -49,3 +49,14 @@ will need to install a cross-compiler gcc suite capable of producing
 x86 ELF binaries (see https://pdos.csail.mit.edu/6.828/).
 Then run "make TOOLPREFIX=i386-jos-elf-". Now install the QEMU PC
 simulator and run "make qemu".
+
+------------------------------------------------------------------------------------------------
+
+The programming assignment consists on the following steps:
+1. Increase the number of ticks each process run before preemption
+2. Change scheduler algorithm to Multi-Level Queue Scheduling
+    - Use 3 priority queues (0 = Low, 1 = Medium, 2 = High)
+    - Processes create via fork are initialized with high priority
+3. Implement aging
+4. Add counters for to measure how long a process was on RUNNING, READY, SLEEPING state.
+5. Create a sanity.c file, that tests the changes made and print the metrics.
